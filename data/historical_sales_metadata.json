@@ -1,0 +1,16 @@
+{
+  "generated_at": "2025-03-31 22:05:32",
+  "parameters": {
+    "start_date": "2024-03-31",
+    "end_date": "2025-03-31",
+    "num_products": 10,
+    "num_stores": 5,
+    "base_demand": 100,
+    "seasonality": true,
+    "trend": 0.1,
+    "noise_level": 0.3,
+    "weekend_effect": 0.2,
+    "promo_frequency": 0.1,
+    "promo_effect": 0.5
+  }
+}

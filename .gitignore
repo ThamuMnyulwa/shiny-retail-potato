@@ -76,3 +76,27 @@ local_settings.py
 .env
 .env.local
 .env.*.local
+
+# Project specific
+retail-pulse.zip
+.python-version
+
+# UV specific
+.uv/
+uv.lock
+
+# Additional project directories (uncomment if you want to ignore them)
+# data/
+# documents/
+# streamlit-app/
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Editor specific
+.idea/
+.vscode/
+.vscode/*
+.cursor
+.cursor/

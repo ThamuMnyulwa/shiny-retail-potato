@@ -1,0 +1,9 @@
+simpy
+pandas
+numpy
+statsmodels
+matplotlib
+streamlit
+networkx
+pillow
+pyarrow
