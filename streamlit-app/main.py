@@ -30,7 +30,7 @@ def main():
     st.image(
         "https://img.freepik.com/free-vector/supply-chain-management-abstract-concept-illustration_335657-3987.jpg",
         caption="Supply Chain Visualization",
-        use_column_width=True,
+        use_container_width=True,
     )
 
 

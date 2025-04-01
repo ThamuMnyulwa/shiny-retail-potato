@@ -1,7 +1,10 @@
 [project]
-name = "retail-pulse"
+name = "shiny-retail-potato"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "scikit-learn>=1.6.1",
+    "xgboost>=3.0.0",
+]

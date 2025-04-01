@@ -1,40 +1,41 @@
 #!/bin/bash
 
-# Setup and run script for Retail Pulse app
+# Setup script for Retail Pulse application using UV for Python package management
 
-# Color codes for terminal output
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+echo "Setting up Retail Pulse application..."
 
-echo -e "${GREEN}Setting up Retail Pulse environment...${NC}"
-
-# Check if uv is installed
-if ! command -v uv &> /dev/null; then
-    echo -e "${YELLOW}uv not found. Please install uv package manager:${NC}"
-    echo "pip install uv"
+# Check if Python is installed
+if ! command -v python3 &> /dev/null; then
+    echo "Python 3 is not installed. Please install Python 3 and try again."
     exit 1
 fi
 
-# Create data directory if it doesn't exist
-if [ ! -d "data" ]; then
-    echo -e "${GREEN}Creating data directory...${NC}"
-    mkdir -p data
+# Print Python version
+python_version=$(python3 --version)
+echo "Using $python_version"
+
+# Install UV if not already installed
+if ! command -v uv &> /dev/null; then
+    echo "Installing UV package manager..."
+    curl -fsSL https://astral.sh/uv/install.sh | bash
+    # Add UV to PATH for the current session
+    export PATH="$HOME/.cargo/bin:$PATH"
 fi
 
-# Install dependencies using uv pip
-echo -e "${GREEN}Installing dependencies...${NC}"
+# Create virtualenv using UV (if it doesn't exist)
+if [ ! -d ".venv" ]; then
+    echo "Creating virtual environment..."
+    uv venv
+fi
+
+# Activate virtual environment
+source .venv/bin/activate
+
+# Install dependencies using UV
+echo "Installing dependencies with UV..."
 uv pip install -r requirements.txt
 
-# Check if the installation was successful
-if [ $? -ne 0 ]; then
-    echo -e "${YELLOW}Failed to install dependencies. Please check the error messages above.${NC}"
-    exit 1
-fi
+# Create data directory
+mkdir -p data
 
-# Run the Streamlit app
-echo -e "${GREEN}Starting Streamlit app...${NC}"
-python run_app.py
-
-# Script end
-exit 0 
+echo "Setup complete! You can now run the application with: streamlit run streamlit-app/main.py" 

@@ -27,7 +27,7 @@ def create_supply_chain_network(num_cdcs=1, num_stores=5):
         cdc_positions.append(("CDC", (2, 0)))
     else:
         # Multiple CDCs arranged vertically
-        cdc_spacing = 1 if num_cdcs <= 3 else 0.5
+        cdc_spacing = 1.5 if num_cdcs <= 3 else 1.0
         start_y = -((num_cdcs - 1) * cdc_spacing) / 2
 
         for i in range(1, num_cdcs + 1):
@@ -43,11 +43,10 @@ def create_supply_chain_network(num_cdcs=1, num_stores=5):
 
     store_count = 1
     for cdc_idx, (cdc_name, cdc_pos) in enumerate(cdc_positions):
-        # Calculate number of stores for this CDC
         this_cdc_stores = stores_per_cdc + (1 if cdc_idx < remaining_stores else 0)
 
         # Calculate store positions
-        store_spacing = 0.5
+        store_spacing = 0.4
         start_y = cdc_pos[1] - ((this_cdc_stores - 1) * store_spacing) / 2
 
         for i in range(this_cdc_stores):
@@ -57,17 +56,17 @@ def create_supply_chain_network(num_cdcs=1, num_stores=5):
             store_positions.append((store_name, (3, y_pos)))
             store_count += 1
 
-    # Add edges
-    G.add_edge("Source", "DDC", transit_time=2)
+    # Add edges with default transit times in WEEKS
+    G.add_edge("Source", "DDC", transit_time=2)  # e.g., 2 weeks
 
     if num_cdcs == 1:
-        G.add_edge("DDC", "CDC", transit_time=1)
+        G.add_edge("DDC", "CDC", transit_time=1)  # e.g., 1 week
         for store_name, _ in store_positions:
-            G.add_edge("CDC", store_name, transit_time=1)
+            G.add_edge("CDC", store_name, transit_time=1)  # e.g., 1 week
     else:
         # Connect DDC to each CDC
         for cdc_name, _ in cdc_positions:
-            G.add_edge("DDC", cdc_name, transit_time=1)
+            G.add_edge("DDC", cdc_name, transit_time=1)  # e.g., 1 week
 
         # Connect each CDC to its stores
         store_idx = 0
@@ -77,7 +76,7 @@ def create_supply_chain_network(num_cdcs=1, num_stores=5):
             for i in range(this_cdc_stores):
                 if store_idx < len(store_positions):
                     store_name = store_positions[store_idx][0]
-                    G.add_edge(cdc_name, store_name, transit_time=1)
+                    G.add_edge(cdc_name, store_name, transit_time=1)  # e.g., 1 week
                     store_idx += 1
 
     return G
@@ -139,9 +138,10 @@ def visualize_network(G, highlight_path=None, show_inventory=False):
 
     nx.draw_networkx_labels(G, pos, labels, font_size=10, font_weight="bold", ax=ax)
 
-    # Add edge labels (transit times)
+    # Add edge labels (transit times in WEEKS)
     edge_labels = {
-        (u, v): f"{d['transit_time']} days" for u, v, d in G.edges(data=True)
+        (u, v): f"{d['transit_time']} weeks"
+        for u, v, d in G.edges(data=True)  # Changed 'days' to 'weeks'
     }
     nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_size=8, ax=ax)
 
@@ -330,13 +330,15 @@ def main():
         col1, col2 = st.columns(2)
 
         with col1:
-            st.write("**Transit Times (Days)**")
-            st.slider("Source to DDC", 1, 10, 2, key="transit_source_ddc")
-            st.slider("DDC to CDC", 1, 10, 1, key="transit_ddc_cdc")
-            st.slider("CDC to Stores", 1, 10, 1, key="transit_cdc_stores")
+            st.write("**Transit Times (Weeks)**")  # Changed 'Days' to 'Weeks'
+            # Adjusted default values and potentially ranges for weeks
+            st.slider("Source to DDC (Weeks)", 1, 5, 2, key="transit_source_ddc")
+            st.slider("DDC to CDC (Weeks)", 1, 5, 1, key="transit_ddc_cdc")
+            st.slider("CDC to Stores (Weeks)", 1, 5, 1, key="transit_cdc_stores")
 
         with col2:
             st.write("**Initial Inventory Levels**")
+            # Inventory sliders remain the same
             st.slider("Source", 0, 2000, 1000, 100, key="inventory_source")
             st.slider("DDC", 0, 1000, 500, 50, key="inventory_ddc")
             st.slider("CDC", 0, 1000, 800, 50, key="inventory_cdc")
@@ -344,7 +346,7 @@ def main():
 
         # Update network with new parameters
         if st.button("Update Network Parameters"):
-            # Update transit times
+            # Update transit times (logic remains the same, values are now weeks)
             if "Source" in network.nodes and "DDC" in network.nodes:
                 network.edges["Source", "DDC"][
                     "transit_time"

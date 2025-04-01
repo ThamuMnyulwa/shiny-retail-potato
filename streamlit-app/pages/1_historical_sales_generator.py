@@ -14,7 +14,7 @@ st.set_page_config(
 def generate_sales_data(
     start_date,
     end_date,
-    num_products,
+    num_skus,
     num_stores,
     base_demand=100,
     seasonality=True,
@@ -33,8 +33,8 @@ def generate_sales_data(
         Start date for the simulation
     end_date : datetime
         End date for the simulation
-    num_products : int
-        Number of different products to simulate
+    num_skus : int
+        Number of different SKUs to simulate
     num_stores : int
         Number of retail stores to simulate
     base_demand : float
@@ -60,8 +60,8 @@ def generate_sales_data(
     date_range = pd.date_range(start=start_date, end=end_date, freq="D")
     num_days = len(date_range)
 
-    # Create product and store IDs
-    product_ids = [f"P{i:03d}" for i in range(1, num_products + 1)]
+    # Create SKU and store IDs
+    sku_ids = [f"S{i:03d}" for i in range(1, num_skus + 1)]
     store_ids = [f"S{i:03d}" for i in range(1, num_stores + 1)]
 
     # Pre-calculate time-based effects
@@ -88,10 +88,10 @@ def generate_sales_data(
     # Create empty list to store records
     records = []
 
-    # Generate sales for each product, store, and day
-    for product_id in product_ids:
-        # Product-specific base demand (some products sell better than others)
-        product_popularity = np.random.uniform(0.7, 1.3)
+    # Generate sales for each SKU, store, and day
+    for sku_id in sku_ids:
+        # SKU-specific base demand (some SKUs sell better than others)
+        sku_popularity = np.random.uniform(0.7, 1.3)
 
         for store_id in store_ids:
             # Store-specific base demand (some stores sell more than others)
@@ -102,9 +102,7 @@ def generate_sales_data(
 
             # Calculate daily sales
             for i, date in enumerate(date_range):
-                base_sales = (
-                    base_demand * product_popularity * store_size * time_effects[i]
-                )
+                base_sales = base_demand * sku_popularity * store_size * time_effects[i]
 
                 # Add promotion effect
                 if promo_days[i]:
@@ -114,18 +112,26 @@ def generate_sales_data(
                 noise = np.random.normal(1, noise_level)
                 sales = max(0, round(base_sales * noise))
 
+                # Generate random stock on hand (between 0.5 and 1.0)
+                stock_on_hand = np.random.uniform(0.5, 1.0)
+
                 records.append(
                     {
                         "date": date,
-                        "product_id": product_id,
+                        "sku_id": sku_id,
                         "store_id": store_id,
                         "sales_quantity": sales,
                         "promotion": 1 if promo_days[i] else 0,
+                        "stock_on_hand": stock_on_hand,
                     }
                 )
 
     # Convert to DataFrame
     df = pd.DataFrame(records)
+
+    # Add week column for easier weekly aggregation
+    df["week"] = pd.to_datetime(df["date"]).dt.to_period("W").dt.start_time
+
     return df
 
 
@@ -142,6 +148,23 @@ def save_data(df, filename, format="csv"):
         df.to_parquet(filepath, index=False)
     elif format == "json":
         df.to_json(filepath, orient="records")
+
+    # Save metadata
+    metadata = {
+        "filename": f"{filename}.{format}",
+        "format": format,
+        "rows": len(df),
+        "unique_stores": df["store_id"].nunique(),
+        "unique_skus": df["sku_id"].nunique(),
+        "date_range": [
+            df["date"].min().strftime("%Y-%m-%d"),
+            df["date"].max().strftime("%Y-%m-%d"),
+        ],
+        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    }
+
+    with open(f"data/{filename}_metadata.json", "w") as f:
+        json.dump(metadata, f, indent=2)
 
     return filepath
 
@@ -160,16 +183,16 @@ def plot_total_sales(df):
     return fig
 
 
-def plot_product_sales(df):
-    """Plot sales by product"""
-    product_sales = (
-        df.groupby("product_id")["sales_quantity"].sum().sort_values(ascending=False)
+def plot_sku_sales(df):
+    """Plot sales by SKU"""
+    sku_sales = (
+        df.groupby("sku_id")["sales_quantity"].sum().sort_values(ascending=False)
     )
 
     fig, ax = plt.subplots(figsize=(10, 6))
-    product_sales.plot(kind="bar", ax=ax)
-    ax.set_title("Total Sales by Product")
-    ax.set_xlabel("Product ID")
+    sku_sales.plot(kind="bar", ax=ax)
+    ax.set_title("Total Sales by SKU")
+    ax.set_xlabel("SKU ID")
     ax.set_ylabel("Sales Quantity")
     ax.grid(True, alpha=0.3, axis="y")
 
@@ -192,6 +215,20 @@ def plot_store_sales(df):
     return fig
 
 
+def plot_weekly_sales(df):
+    """Plot sales by week"""
+    weekly_sales = df.groupby("week")["sales_quantity"].sum().reset_index()
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.plot(weekly_sales["week"], weekly_sales["sales_quantity"])
+    ax.set_title("Total Weekly Sales")
+    ax.set_xlabel("Week")
+    ax.set_ylabel("Sales Quantity")
+    ax.grid(True, alpha=0.3)
+
+    return fig
+
+
 def main():
     st.title("Historical Sales Data Generator")
 
@@ -199,6 +236,11 @@ def main():
         """
     Use this tool to generate synthetic historical sales data for your retail simulation.
     Customize the parameters below to create realistic sales patterns with seasonality, trends, and promotions.
+    
+    The generated data will include:
+    - **Weekly time periods**: Data is aggregated by week for demand forecasting
+    - **SKUs**: Individual products identified by SKU ID
+    - **Stock levels**: Random stock-on-hand values between 0.5 and 1.0
     """
     )
 
@@ -215,7 +257,7 @@ def main():
             end_date = st.date_input("End Date", datetime.now())
 
         st.subheader("Network Size")
-        num_products = st.slider("Number of Products", 1, 50, 10)
+        num_skus = st.slider("Number of SKUs", 1, 50, 10)
         num_stores = st.slider("Number of Stores", 1, 30, 5)
 
         st.subheader("Sales Patterns")
@@ -248,7 +290,7 @@ def main():
                 0.3,
                 0.1,
                 0.01,
-                help="Percentage of days with promotions",
+                help="How often promotions occur",
             )
             promo_effect = st.slider(
                 "Promotion Effect",
@@ -256,160 +298,122 @@ def main():
                 2.0,
                 0.5,
                 0.1,
-                help="Sales increase during promotions",
+                help="How much promotions boost sales",
             )
 
-    # Main content area
-    tab1, tab2 = st.tabs(["Generate Data", "Visualize Sample"])
+        st.subheader("Output Format")
+        filename = st.text_input("Filename (without extension)", "sales_data")
+        file_format = st.selectbox("File Format", ["csv", "parquet", "json"])
 
-    with tab1:
-        col1, col2 = st.columns(2)
+    # Calculate number of days
+    days_diff = (end_date - start_date).days + 1
+    num_records = days_diff * num_skus * num_stores
 
+    st.write(
+        f"This will generate approximately **{num_records:,}** records of sales data over **{days_diff}** days."
+    )
+    st.write(
+        f"Time period: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}"
+    )
+
+    if st.button("Generate Sales Data"):
+        with st.spinner("Generating sales data..."):
+            # Convert dates to datetime objects
+            start_dt = datetime.combine(start_date, datetime.min.time())
+            end_dt = datetime.combine(end_date, datetime.min.time())
+
+            # Generate data
+            df = generate_sales_data(
+                start_dt,
+                end_dt,
+                num_skus,
+                num_stores,
+                base_demand,
+                seasonality,
+                trend,
+                noise_level,
+                weekend_effect,
+                promo_frequency,
+                promo_effect,
+            )
+
+            # Save to file
+            filepath = save_data(df, filename, file_format)
+            st.success(f"Data generated and saved to {filepath}")
+
+            # Display info
+            st.session_state.generated_data = df
+            st.session_state.data_path = filepath
+
+            # Rerun to show visualization options
+            st.rerun()
+
+    # Visualization section (only if data exists)
+    if "generated_data" in st.session_state:
+        df = st.session_state.generated_data
+        filepath = st.session_state.data_path
+
+        st.header("Data Preview")
+        st.dataframe(df.head(10), use_container_width=True)
+
+        # Data summary
+        st.header("Data Summary")
+        col1, col2, col3 = st.columns(3)
         with col1:
-            output_format = st.selectbox(
-                "Output Format", ["csv", "parquet", "json"], index=0
-            )
-            filename = st.text_input("Filename (without extension)", "historical_sales")
-
+            st.metric("Total Records", f"{len(df):,}")
         with col2:
-            st.write("Summary:")
-            st.write(f"• Time Period: {(end_date - start_date).days + 1} days")
-            st.write(
-                f"• Total Records: {num_products * num_stores * ((end_date - start_date).days + 1):,}"
+            st.metric("Total Sales", f"{df['sales_quantity'].sum():,}")
+        with col3:
+            st.metric(
+                "Date Range", f"{df['date'].min().date()} to {df['date'].max().date()}"
             )
-            st.write(f"• Output: data/{filename}.{output_format}")
 
-        if st.button("Generate Sales Data", type="primary"):
-            with st.spinner("Generating sales data..."):
-                # Convert datetime.date to datetime.datetime for pandas date_range
-                start_datetime = datetime.combine(start_date, datetime.min.time())
-                end_datetime = datetime.combine(end_date, datetime.min.time())
+        # Visualizations
+        st.header("Visualizations")
 
-                # Generate data
-                df = generate_sales_data(
-                    start_datetime,
-                    end_datetime,
-                    num_products,
-                    num_stores,
-                    base_demand,
-                    seasonality,
-                    trend,
-                    noise_level,
-                    weekend_effect,
-                    promo_frequency,
-                    promo_effect,
-                )
+        tab1, tab2, tab3, tab4 = st.tabs(
+            ["Daily Sales", "Weekly Sales", "By SKU", "By Store"]
+        )
 
-                # Save to file
-                filepath = save_data(df, filename, output_format)
-
-                # Display success message and sample
-                st.success(
-                    f"Successfully generated {len(df):,} records and saved to {filepath}"
-                )
-
-                # Save metadata about the generation parameters
-                metadata = {
-                    "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    "parameters": {
-                        "start_date": start_date.strftime("%Y-%m-%d"),
-                        "end_date": end_date.strftime("%Y-%m-%d"),
-                        "num_products": num_products,
-                        "num_stores": num_stores,
-                        "base_demand": base_demand,
-                        "seasonality": seasonality,
-                        "trend": trend,
-                        "noise_level": noise_level,
-                        "weekend_effect": weekend_effect,
-                        "promo_frequency": promo_frequency,
-                        "promo_effect": promo_effect,
-                    },
-                }
-
-                with open(f"data/{filename}_metadata.json", "w") as f:
-                    json.dump(metadata, f, indent=2)
-
-                # Store in session state for visualization
-                st.session_state.generated_data = df
-                st.session_state.has_data = True
-
-                # Show sample of the data
-                st.subheader("Sample Data (First 10 rows)")
-                st.dataframe(df.head(10))
-
-    with tab2:
-        # Check if data exists in session state
-        if not st.session_state.get("has_data", False):
-            st.info("Generate data first or upload existing data to visualize it.")
-
-            # Option to generate sample data just for visualization
-            if st.button("Generate Sample Data for Preview"):
-                with st.spinner("Generating sample data..."):
-                    # Generate a smaller sample for quick visualization
-                    sample_start = datetime.now() - timedelta(days=180)
-                    sample_end = datetime.now()
-                    sample_df = generate_sales_data(
-                        sample_start,
-                        sample_end,
-                        5,
-                        3,
-                        base_demand,
-                        seasonality,
-                        trend,
-                        noise_level,
-                        weekend_effect,
-                        promo_frequency,
-                        promo_effect,
-                    )
-                    st.session_state.generated_data = sample_df
-                    st.session_state.has_data = True
-                    st.rerun()
-        else:
-            df = st.session_state.generated_data
-
-            # Display visualizations
-            st.subheader("Sales Overview")
-
-            # Total sales over time
+        with tab1:
             st.pyplot(plot_total_sales(df))
 
-            col1, col2 = st.columns(2)
+        with tab2:
+            st.pyplot(plot_weekly_sales(df))
 
-            with col1:
-                # Sales by product
-                st.pyplot(plot_product_sales(df))
+        with tab3:
+            st.pyplot(plot_sku_sales(df))
 
-            with col2:
-                # Sales by store
-                st.pyplot(plot_store_sales(df))
+        with tab4:
+            st.pyplot(plot_store_sales(df))
 
-            # Advanced analysis
-            with st.expander("Additional Analysis"):
-                # Day of week pattern
-                df["day_of_week"] = pd.to_datetime(df["date"]).dt.day_name()
-                day_order = [
-                    "Monday",
-                    "Tuesday",
-                    "Wednesday",
-                    "Thursday",
-                    "Friday",
-                    "Saturday",
-                    "Sunday",
-                ]
-                daily_avg = (
-                    df.groupby("day_of_week")["sales_quantity"]
-                    .mean()
-                    .reindex(day_order)
-                )
+        # Download options
+        st.header("Download Data")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.download_button(
+                "Download Generated Data",
+                df.to_csv(index=False).encode("utf-8"),
+                f"generated_sales_data.csv",
+                "text/csv",
+            )
 
-                st.subheader("Average Sales by Day of Week")
-                st.bar_chart(daily_avg)
+        with col2:
+            if os.path.exists(filepath):
+                with open(filepath, "rb") as f:
+                    if file_format == "csv":
+                        mime = "text/csv"
+                    elif file_format == "parquet":
+                        mime = "application/octet-stream"
+                    else:  # json
+                        mime = "application/json"
 
-                # Promotion effect
-                promo_effect = df.groupby("promotion")["sales_quantity"].mean()
-
-                st.subheader("Average Sales With/Without Promotion")
-                st.bar_chart(promo_effect)
+                    st.download_button(
+                        f"Download {file_format.upper()} File",
+                        f,
+                        os.path.basename(filepath),
+                        mime,
+                    )
 
 
 if __name__ == "__main__":

@@ -1,6 +1,84 @@
-# retail-pulse
+# Retail Pulse: Supply Chain Simulation
 
-Repo on some retail stuff to try to fine tune an LLM to teach someone about retail going.
+A Streamlit application for simulating and analyzing retail supply chain dynamics.
+
+## Features
+
+- **Historical Sales Generator**: Create synthetic sales data with customizable parameters
+- **Supply Chain Network**: Visualize and manage your retail network
+- **Simulation**: Run supply chain simulations with different configurations 
+- **Demand Forecasting**: Predict future sales and demand at the store-SKU level
+
+## Updates
+
+- All components now use consistent terminology (SKU instead of Product)
+- Time periods are measured in weeks for forecasting
+- Integrated demand forecasting with historical sales generator
+- Updated to use Streamlit's modern `rerun()` instead of deprecated `experimental_rerun()`
+- Now uses UV package manager for Python dependencies
+
+## Installation
+
+### Using UV (Recommended)
+
+1. Clone the repository:
+   ```
+   git clone https://github.com/yourusername/retail-pulse.git
+   cd retail-pulse
+   ```
+
+2. Run the setup script:
+   ```
+   ./setup.sh
+   ```
+
+This script will:
+- Install UV if not already installed
+- Create a virtual environment
+- Install all dependencies using UV
+- Create the necessary data directory
+
+### Manual Installation
+
+If you prefer not to use the setup script:
+
+1. Install UV:
+   ```
+   curl -fsSL https://astral.sh/uv/install.sh | bash
+   ```
+
+2. Create a virtual environment and install dependencies:
+   ```
+   uv venv
+   source venv/bin/activate
+   uv pip install -r requirements.txt
+   ```
+
+## Running the Application
+
+1. Use the run script:
+   ```
+   ./run.sh
+   ```
+
+Or manually:
+   ```
+   source venv/bin/activate
+   streamlit run streamlit-app/main.py
+   ```
+
+2. Navigate to the URL shown in the terminal (typically http://localhost:8501)
+
+## Usage
+
+1. Start with the **Historical Sales Generator** to create sales data
+2. Explore your supply chain network
+3. Run simulations with different parameters
+4. Use the demand forecasting tool to predict future sales
+
+## Notes
+
+- XGBoost requires OpenMP runtime on macOS. If you encounter issues, the application will fall back to Gradient Boosting.
 
 ## Documentation: simulation_design.md, all documents in `documents` folder
 
