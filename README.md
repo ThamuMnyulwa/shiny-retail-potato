@@ -1,73 +1,45 @@
-# Retail Pulse: Supply Chain Simulation
+# shiny-retail-potato
+Repo on some retail stuff to try to fine tune an LLM to teach someone about retail going.
 
 A Streamlit application for simulating and analyzing retail supply chain dynamics.
 
 ## Features
 
-- **Historical Sales Generator**: Create synthetic sales data with customizable parameters
-- **Supply Chain Network**: Visualize and manage your retail network
-- **Simulation**: Run supply chain simulations with different configurations 
-- **Demand Forecasting**: Predict future sales and demand at the store-SKU level
-
-## Updates
-
-- All components now use consistent terminology (SKU instead of Product)
-- Time periods are measured in weeks for forecasting
-- Integrated demand forecasting with historical sales generator
-- Updated to use Streamlit's modern `rerun()` instead of deprecated `experimental_rerun()`
-- Now uses UV package manager for Python dependencies
+- Historical sales data generation with configurable parameters
+- Supply chain network visualization and configuration
+- Discrete event simulation using SimPy
+- Demand forecasting with various algorithms
+- Secure authentication and data storage with Supabase
 
 ## Installation
 
-### Using UV (Recommended)
+1. Clone this repository:
+```bash
+git clone https://github.com/yourusername/shiny-retail-potato.git
+cd shiny-retail-potato
+```
 
-1. Clone the repository:
-   ```
-   git clone https://github.com/yourusername/retail-pulse.git
-   cd retail-pulse
-   ```
+2. Install dependencies:
+```bash
+# Using UV (recommended)
+uv pip install -r requirements.txt
 
-2. Run the setup script:
-   ```
-   ./setup.sh
-   ```
+# Or using standard pip
+pip install -r requirements.txt
+```
 
-This script will:
-- Install UV if not already installed
-- Create a virtual environment
-- Install all dependencies using UV
-- Create the necessary data directory
+3. Set up Supabase:
+   - Create a Supabase account at [https://supabase.com](https://supabase.com)
+   - Create a new project
+   - Set up authentication and database (see `.streamlit/README.md` for details)
+   - Create a `.streamlit/secrets.toml` file with your Supabase credentials:
+     ```toml
+     [supabase]
+     url = "YOUR_SUPABASE_PROJECT_URL"
+     key = "YOUR_SUPABASE_ANON_KEY"
+     ```
 
-### Manual Installation
-
-If you prefer not to use the setup script:
-
-1. Install UV:
-   ```
-   curl -fsSL https://astral.sh/uv/install.sh | bash
-   ```
-
-2. Create a virtual environment and install dependencies:
-   ```
-   uv venv
-   source venv/bin/activate
-   uv pip install -r requirements.txt
-   ```
-
-## Running the Application
-
-1. Use the run script:
-   ```
-   ./run.sh
-   ```
-
-Or manually:
-   ```
-   source venv/bin/activate
-   streamlit run streamlit-app/main.py
-   ```
-
-2. Navigate to the URL shown in the terminal (typically http://localhost:8501)
+## Running the App
 
 ## Usage
 
@@ -178,14 +150,18 @@ The project includes a Streamlit web application for interactive data generation
    streamlit run streamlit-app/main.py
    ```
 
-3. The app will open in your default web browser at `http://localhost:8501`.
+## Project Structure
 
-### Usage
+- `streamlit-app/` - Main application code
+  - `components/` - Reusable UI components
+  - `lib/` - Core functionality and utilities
+  - `models/` - Data models (Pydantic)
+  - `pages/` - Streamlit pages for different sections
+  - `services/` - Business logic services
+- `.streamlit/` - Streamlit configuration and secrets
+- `data/` - Local data storage (if using file-based storage)
 
-1. **Generate Historical Sales Data**:
-   - Navigate to the "Historical Sales Generator" page
-   - Configure your parameters (number of products, stores, date range, etc.)
-   - Generate and save the data to the `data/` directory
+## Key Updates
 
 2. **Visualize Supply Chain Network**:
    - Navigate to the "Supply Chain Network" page
@@ -202,9 +178,9 @@ The project includes a Streamlit web application for interactive data generation
    - Choose forecasting method and parameters
    - Generate and download forecasts
 
----
+## Contributing
 
-## Repository Structure with an `app` Folder
+Contributions welcome! Please feel free to submit a Pull Request.
 
 ```
 Retail_Simulation/

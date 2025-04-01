@@ -4,16 +4,22 @@
 
 # Check if virtual environment exists
 if [ ! -d ".venv" ]; then
-    echo "Virtual environment not found. Please run setup.sh first."
-    exit 1
+    echo "Virtual environment not found. Creating one now..."
+    python -m venv .venv
 fi
 
 # Activate virtual environment
 source .venv/bin/activate
 
+# Check if streamlit is installed
+if ! python -c "import streamlit" &> /dev/null; then
+    echo "Streamlit not found. Installing required packages..."
+    python -m pip install -r requirements.txt
+fi
+
 # Run the application
 echo "Starting Retail Pulse application..."
-streamlit run streamlit-app/main.py
+python -m streamlit run streamlit-app/main.py
 
 # Deactivate virtual environment on exit
-deactivate 
+trap "deactivate" EXIT 
