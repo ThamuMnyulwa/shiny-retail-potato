@@ -15,7 +15,7 @@ def ensure_directories():
 
 def run_app():
     """Run the Streamlit app"""
-    streamlit_app_dir = Path("streamlit-app")
+    streamlit_app_dir = Path("streamlit_app")
 
     if not streamlit_app_dir.exists():
         print("Error: streamlit-app directory not found.")
