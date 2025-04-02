@@ -129,21 +129,19 @@ def generate_sales_data(
     return df
 
 
-def save_data(df, filename, format="csv"):
-    """Save generated data to file"""
-    # Create data directory if it doesn't exist
-    os.makedirs("data", exist_ok=True)
-
-    filepath = f"data/{filename}.{format}"
-
-    if format == "csv":
-        df.to_csv(filepath, index=False)
-    elif format == "parquet":
-        df.to_parquet(filepath, index=False)
-    elif format == "json":
-        df.to_json(filepath, orient="records")
-
-    return filepath
+def save_data(df, filename):
+    """Save generated data to Supabase"""
+    from ..config import supabase
+    
+    # Convert DataFrame to records
+    records = df.to_dict('records')
+    
+    # Insert data into Supabase
+    try:
+        data = supabase.table('historical_sales').insert(records).execute()
+        return "Data saved successfully to Supabase"
+    except Exception as e:
+        return f"Error saving to Supabase: {str(e)}"
 
 
 def plot_total_sales(df):

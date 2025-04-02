@@ -5,8 +5,24 @@ run = "streamlit run streamlit_app/main.py"
 channel = "stable-24_05"
 
 [deployment]
-run = ["sh", "-c", "streamlit run main.py"]
+run = ["sh", "-c", "python run_app.py"]
 
 [[ports]]
 localPort = 8501
 externalPort = 80
+
+[workflows]
+runButton = "Run Retail App"
+
+[[workflows.workflow]]
+name = "Run Retail App"
+author = 40784639
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "uv pip sync"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python run_app.py"

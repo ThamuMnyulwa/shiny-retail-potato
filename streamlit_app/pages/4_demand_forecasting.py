@@ -13,16 +13,16 @@ from datetime import datetime, timedelta
 st.set_page_config(page_title="Demand Forecasting", page_icon="📈", layout="wide")
 
 
-def load_historical_data(file_path):
-    """Load historical sales data from file"""
-    if file_path.endswith(".csv"):
-        df = pd.read_csv(file_path)
-    elif file_path.endswith(".parquet"):
-        df = pd.read_parquet(file_path)
-    elif file_path.endswith(".json"):
-        df = pd.read_json(file_path)
-    else:
-        st.error(f"Unsupported file format: {file_path}")
+def load_historical_data():
+    """Load historical sales data from Supabase"""
+    from ..config import supabase
+    
+    try:
+        response = supabase.table('historical_sales').select("*").execute()
+        df = pd.DataFrame(response.data)
+        return df
+    except Exception as e:
+        st.error(f"Error loading data from Supabase: {str(e)}")
         return None
 
     # Convert date column to datetime
