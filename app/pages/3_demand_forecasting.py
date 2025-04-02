@@ -48,10 +48,21 @@ def load_historical_data(file_path):
         if "date" in df.columns:
             df["date"] = pd.to_datetime(df["date"])
 
-        # Rename product_id to sku_id if it exists
-        if "product_id" in df.columns and "sku_id" not in df.columns:
-            df = df.rename(columns={"product_id": "sku_id"})
-            st.toast("Renamed 'product_id' to 'sku_id'", icon="🔄")
+        # Handle various column naming conventions
+        # Map columns to the expected names
+        column_mappings = {
+            "product_id": "sku_id",
+            "sku": "sku_id",
+            "branch": "store_id",
+            "actual_sales": "sales_quantity",
+            "potential_demand": "demand",
+        }
+
+        # Apply the mappings where needed
+        for old_col, new_col in column_mappings.items():
+            if old_col in df.columns and new_col not in df.columns:
+                df = df.rename(columns={old_col: new_col})
+                st.toast(f"Renamed '{old_col}' to '{new_col}'", icon="🔄")
 
         # If stock_on_hand not in columns, add it with random values
         if "stock_on_hand" not in df.columns:
@@ -81,6 +92,9 @@ def prepare_time_series(
     df, aggregation_level="Weekly", target_store=None, target_sku=None
 ):
     """Prepare time series data for forecasting"""
+    # Create a copy of the DataFrame to avoid SettingWithCopyWarning
+    df = df.copy()
+
     # Filter data if needed
     if target_store and target_store != "All Stores":
         df = df[df["store_id"] == target_store]
@@ -101,36 +115,113 @@ def create_demand_forecast_dataset(df, aggregation_level="Weekly", forecast_hori
     # Show a toast notification when starting the dataset creation
     st.toast("Preparing forecast dataset...", icon="⏳")
 
+    # Make a copy of the DataFrame to avoid SettingWithCopyWarning
+    df = df.copy()
+
+    # Ensure we have the expected column names
+    column_mappings = {
+        "actual_sales": "sales_quantity",
+        "branch": "store_id",
+        "sku": "sku_id",
+    }
+
+    # Apply mappings where needed
+    for old_col, new_col in column_mappings.items():
+        if old_col in df.columns and new_col not in df.columns:
+            df[new_col] = df[old_col]
+
+    # Check if we have the necessary columns
+    required_columns = ["store_id", "sku_id", "date"]
+    missing_columns = [col for col in required_columns if col not in df.columns]
+
+    if missing_columns:
+        st.error(
+            f"Missing required columns: {missing_columns}. Available: {df.columns.tolist()}"
+        )
+        return pd.DataFrame()
+
+    # Check for sales column - either sales_quantity or actual_sales must exist
+    if "sales_quantity" not in df.columns and "actual_sales" not in df.columns:
+        st.error(
+            "Either 'sales_quantity' or 'actual_sales' column must exist in the dataset"
+        )
+        return pd.DataFrame()
+
+    # If sales_quantity doesn't exist but actual_sales does, use actual_sales
+    if "sales_quantity" not in df.columns and "actual_sales" in df.columns:
+        df["sales_quantity"] = df["actual_sales"]
+
+    # Convert date column to datetime if it's not already
+    if not pd.api.types.is_datetime64_any_dtype(df["date"]):
+        df["date"] = pd.to_datetime(df["date"])
+
     # Ensure we have week column
     if "week" not in df.columns and aggregation_level == "Weekly":
         df["week"] = df["date"].dt.to_period("W").dt.start_time
 
     # Aggregate to store-sku-week level
     if aggregation_level == "Weekly":
+        # Check for actual_sales column
+        sales_col = (
+            "sales_quantity" if "sales_quantity" in df.columns else "actual_sales"
+        )
+        if sales_col not in df.columns:
+            st.error(
+                f"Required column '{sales_col}' not found in dataset. Available columns: {df.columns.tolist()}"
+            )
+            return pd.DataFrame()
+
         grouped = (
             df.groupby(["store_id", "sku_id", "week"])
             .agg(
                 {
-                    "sales_quantity": "sum",
+                    sales_col: "sum",
                     "stock_on_hand": "mean",  # Average stock level for the week
                 }
             )
             .reset_index()
         )
+        # Rename to standard column name
+        if sales_col != "sales_quantity":
+            grouped = grouped.rename(columns={sales_col: "sales_quantity"})
     elif aggregation_level == "Daily":
+        sales_col = (
+            "sales_quantity" if "sales_quantity" in df.columns else "actual_sales"
+        )
+        if sales_col not in df.columns:
+            st.error(
+                f"Required column '{sales_col}' not found in dataset. Available columns: {df.columns.tolist()}"
+            )
+            return pd.DataFrame()
+
         grouped = (
             df.groupby(["store_id", "sku_id", "date"])
-            .agg({"sales_quantity": "sum", "stock_on_hand": "mean"})
+            .agg({sales_col: "sum", "stock_on_hand": "mean"})
             .reset_index()
         )
+        # Rename to standard column name
+        if sales_col != "sales_quantity":
+            grouped = grouped.rename(columns={sales_col: "sales_quantity"})
         grouped = grouped.rename(columns={"date": "time_period"})
     elif aggregation_level == "Monthly":
+        sales_col = (
+            "sales_quantity" if "sales_quantity" in df.columns else "actual_sales"
+        )
+        if sales_col not in df.columns:
+            st.error(
+                f"Required column '{sales_col}' not found in dataset. Available columns: {df.columns.tolist()}"
+            )
+            return pd.DataFrame()
+
         df["month"] = df["date"].dt.to_period("M").dt.start_time
         grouped = (
             df.groupby(["store_id", "sku_id", "month"])
-            .agg({"sales_quantity": "sum", "stock_on_hand": "mean"})
+            .agg({sales_col: "sum", "stock_on_hand": "mean"})
             .reset_index()
         )
+        # Rename to standard column name
+        if sales_col != "sales_quantity":
+            grouped = grouped.rename(columns={sales_col: "sales_quantity"})
         grouped = grouped.rename(columns={"month": "time_period"})
 
     if aggregation_level == "Weekly":
@@ -986,6 +1077,47 @@ def find_latest_historical_data():
     return data_files[0][0]
 
 
+def load_data_from_supabase():
+    """Load data directly from Supabase using DataLoader"""
+    try:
+        from app.services.data_loader import DataLoader
+
+        st.toast("Loading data from Supabase...", icon="⏳")
+        data_loader = DataLoader()
+        df = data_loader.load_data()
+
+        if df is not None and not df.empty:
+            # Rename the columns to match expected names
+            if "actual_sales" in df.columns and "sales_quantity" not in df.columns:
+                df = df.rename(columns={"actual_sales": "sales_quantity"})
+            if "branch" in df.columns and "store_id" not in df.columns:
+                df = df.rename(columns={"branch": "store_id"})
+            if "sku" in df.columns and "sku_id" not in df.columns:
+                df = df.rename(columns={"sku": "sku_id"})
+
+            # Add stock_on_hand if it's not there
+            if "stock_on_hand" not in df.columns:
+                st.warning(
+                    "Stock on hand data not found in dataset. Using simulated values."
+                )
+                df["stock_on_hand"] = np.random.uniform(0.2, 0.8, size=len(df))
+
+            # Convert date to datetime if needed
+            if "date" in df.columns and not pd.api.types.is_datetime64_any_dtype(
+                df["date"]
+            ):
+                df["date"] = pd.to_datetime(df["date"])
+
+            st.success(f"Loaded {len(df)} records from Supabase")
+            return df
+        else:
+            st.error("No data found in Supabase or error loading data")
+            return None
+    except Exception as e:
+        st.error(f"Error loading data from Supabase: {str(e)}")
+        return None
+
+
 def main():
     st.title("Sales & Demand Forecasting")
 
@@ -1028,31 +1160,44 @@ def main():
     with st.sidebar:
         st.header("Data Selection")
 
-        if data_files:
-            # Use the latest file as default if available
-            default_index = (
-                data_files.index(latest_file) if latest_file in data_files else 0
-            )
+        # Add option to load data from Supabase
+        data_source = st.radio(
+            "Data Source",
+            ["Supabase Database", "Local Files"],
+            index=0,
+            help="Choose where to load data from",
+        )
 
-            selected_file = st.selectbox(
-                "Select Historical Sales Data",
-                data_files,
-                index=default_index,
-                help="Choose a file generated by the Historical Sales Generator",
-            )
-            data_path = os.path.join("data", selected_file)
+        if data_source == "Local Files":
+            if data_files:
+                # Use the latest file as default if available
+                default_index = (
+                    data_files.index(latest_file) if latest_file in data_files else 0
+                )
 
-            if st.button("Go to Historical Sales Generator"):
-                # Use the correct rerun method based on Streamlit version
-                st.switch_page("pages/1_historical_sales_generator.py")
+                selected_file = st.selectbox(
+                    "Select Historical Sales Data",
+                    data_files,
+                    index=default_index,
+                    help="Choose a file generated by the Historical Sales Generator",
+                )
+                data_path = os.path.join("data", selected_file)
+
+                if st.button("Go to Historical Sales Generator"):
+                    # Use the correct rerun method based on Streamlit version
+                    st.switch_page("pages/1_historical_sales_generator.py")
+            else:
+                st.warning(
+                    "No data files found. Please generate historical sales data first using the Historical Sales Generator."
+                )
+                if st.button("Go to Historical Sales Generator"):
+                    # Use the correct rerun method based on Streamlit version
+                    st.switch_page("pages/1_historical_sales_generator.py")
+                data_path = None
         else:
-            st.warning(
-                "No data files found. Please generate historical sales data first using the Historical Sales Generator."
-            )
-            if st.button("Go to Historical Sales Generator"):
-                # Use the correct rerun method based on Streamlit version
-                st.switch_page("pages/1_historical_sales_generator.py")
-            data_path = None
+            # Supabase is selected
+            st.info("Data will be loaded directly from the Supabase database")
+            data_path = None  # We'll use Supabase loader instead
 
         st.header("Forecasting Options")
 
@@ -1130,13 +1275,20 @@ def main():
             )
 
     # Main content area
-    if data_path and os.path.exists(data_path):
+    if (
+        data_source == "Local Files" and data_path and os.path.exists(data_path)
+    ) or data_source == "Supabase Database":
         # Load data
         with st.spinner("Loading data..."):
-            df = load_historical_data(data_path)
+            if data_source == "Local Files":
+                df = load_historical_data(data_path)
+                file_info = f"from {selected_file}"
+            else:
+                df = load_data_from_supabase()
+                file_info = "from Supabase database"
 
             if df is not None:
-                st.success(f"Loaded {len(df)} records from {selected_file}")
+                st.success(f"Loaded {len(df)} records {file_info}")
 
                 # Display data summary
                 st.subheader("Data Summary")

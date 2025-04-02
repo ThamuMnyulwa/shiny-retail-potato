@@ -19,7 +19,7 @@ fi
 
 # Run the application
 echo "Starting Retail Pulse application..."
-python -m streamlit run streamlit-app/main.py
+python -m streamlit run main.py
 
 # Deactivate virtual environment on exit
 trap "deactivate" EXIT 

@@ -1,5 +1,5 @@
 import streamlit as st
-from streamlit_app.components.auth import auth_component
+from app.components.auth import auth_component
 
 st.set_page_config(
     page_title="Retail Demand Forecast App",

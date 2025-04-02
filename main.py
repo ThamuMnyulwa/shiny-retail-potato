@@ -1,4 +1,6 @@
 import streamlit as st
+from app.components.auth import auth_component
+from app.services.data_loader import DataLoader
 
 st.set_page_config(
     page_title="Retail Pulse",
@@ -9,8 +11,20 @@ st.set_page_config(
 
 
 def main():
+    # Check authentication using existing auth component
+    if not auth_component():
+        return
+
+    # Initialize data loader
+    data_loader = DataLoader()  # TODO: not sure if this is needed or why it's here
+
+    # Main app content
     st.title("Retail Pulse: Supply Chain Simulation")
 
+    # Load data
+    df = data_loader.load_data()
+
+    # Display welcome message
     st.markdown(
         """
     ## Welcome to Retail Pulse
@@ -18,10 +32,10 @@ def main():
     This application helps you simulate and analyze retail supply chain dynamics.
     
     ### Features:
-    - Generate historical sales data with custom parameters
-    - Visualize supply chain network and inventory levels
-    - Run simulations with different configurations
-    - Analyze results through interactive dashboards
+    - View real-time sales and inventory data
+    - Analyze branch and SKU performance
+    - Track lost sales and potential revenue
+    - Monitor supply chain metrics
     
     👈 Use the sidebar to navigate through different pages.
     """
